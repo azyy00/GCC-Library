@@ -22,6 +22,17 @@ app.get('/api/health', (req, res) => {
     });
 });
 
+app.get('/', (req, res) => {
+    res.json({
+        message: 'GCC Library backend is running.',
+        health: '/api/health'
+    });
+});
+
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
+});
+
 app.use('/api/students', studentRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/stats', statsRoutes);

@@ -1,8 +1,8 @@
 const mysql = require('mysql2');
 const path = require('path');
-const { attachDatabasePool } = require('@vercel/functions');
 require('dotenv').config({
-    path: path.join(__dirname, '..', '.env')
+    path: path.join(__dirname, '..', '.env'),
+    quiet: true
 });
 
 const connectionConfig = {
@@ -17,10 +17,6 @@ const connectionConfig = {
 };
 
 const pool = mysql.createPool(connectionConfig);
-
-if (process.env.VERCEL) {
-    attachDatabasePool(pool);
-}
 
 if (!process.env.VERCEL) {
     pool.getConnection((err, connection) => {

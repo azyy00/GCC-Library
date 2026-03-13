@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { studentApi } from '../services/api';
+import axios from 'axios';
 
 function StudentSearch() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,7 +9,7 @@ function StudentSearch() {
 
   const handleSearch = async () => {
     try {
-      const response = await studentApi.search(searchTerm);
+      const response = await axios.get(`http://localhost:3001/api/students/search?q=${searchTerm}`);
       setResults(response.data);
     } catch (error) {
       console.error('Search error:', error);

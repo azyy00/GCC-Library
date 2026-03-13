@@ -4,17 +4,16 @@ const db = require('../config/db');
 
 router.post('/checkin', (req, res) => {
     console.log('Received check-in request:', req.body);
-    const studentId = `${req.body.student_id || ''}`.trim();
-    const purpose = `${req.body.purpose || ''}`.trim();
+    const { student_id, purpose } = req.body;
     
-    if (!studentId || !purpose) {
+    if (!student_id || !purpose) {
         return res.status(400).json({ error: 'Student ID and purpose are required' });
     }
 
     // First get student's database ID
     db.query(
         'SELECT * FROM students WHERE student_id = ?', 
-        [studentId], 
+        [student_id], 
         (err, results) => {
             if (err) {
                 console.error('Database error finding student:', err);
@@ -27,50 +26,27 @@ router.post('/checkin', (req, res) => {
 
             const student = results[0];
             console.log('Found student:', student);
+            
+            // Create attendance record
+            const attendance = {
+                student_id: student.id,
+                purpose: purpose,
+                check_in: new Date()
+            };
 
-            db.query(
-                `SELECT id, check_in
-                 FROM attendance_logs
-                 WHERE student_id = ? AND check_out IS NULL
-                 ORDER BY check_in DESC
-                 LIMIT 1`,
-                [student.id],
-                (activeErr, activeResults) => {
-                    if (activeErr) {
-                        console.error('Database error checking active attendance:', activeErr);
-                        return res.status(500).json({ error: 'Could not validate current attendance state' });
-                    }
-
-                    if (activeResults.length > 0) {
-                        return res.status(409).json({
-                            error: 'Student is already checked in',
-                            activeAttendance: activeResults[0],
-                            student_name: `${student.first_name} ${student.last_name}`
-                        });
-                    }
-
-                    // Create attendance record
-                    const attendance = {
-                        student_id: student.id,
-                        purpose: purpose,
-                        check_in: new Date()
-                    };
-
-                    db.query('INSERT INTO attendance_logs SET ?', attendance, (insertErr, result) => {
-                        if (insertErr) {
-                            console.error('Database error creating attendance:', insertErr);
-                            return res.status(500).json({ error: 'Could not create attendance record' });
-                        }
-                        
-                        console.log('Created attendance record:', { id: result.insertId, ...attendance });
-                        res.status(201).json({
-                            id: result.insertId,
-                            student_name: `${student.first_name} ${student.last_name}`,
-                            ...attendance
-                        });
-                    });
+            db.query('INSERT INTO attendance_logs SET ?', attendance, (err, result) => {
+                if (err) {
+                    console.error('Database error creating attendance:', err);
+                    return res.status(500).json({ error: 'Could not create attendance record' });
                 }
-            );
+                
+                console.log('Created attendance record:', { id: result.insertId, ...attendance });
+                res.status(201).json({
+                    id: result.insertId,
+                    student_name: `${student.first_name} ${student.last_name}`,
+                    ...attendance
+                });
+            });
         }
     );
 });
@@ -78,8 +54,7 @@ router.post('/checkin', (req, res) => {
 // Get active attendance records
 router.get('/active', (req, res) => {
     const query = `
-        SELECT al.*, s.student_id, s.first_name, s.last_name, s.course, s.year_level, s.section,
-               TIMESTAMPDIFF(MINUTE, al.check_in, NOW()) as minutes_inside
+        SELECT al.*, s.student_id, s.first_name, s.last_name, s.course, s.year_level, s.section
         FROM attendance_logs al
         JOIN students s ON al.student_id = s.id
         WHERE al.check_out IS NULL
@@ -98,17 +73,11 @@ router.get('/active', (req, res) => {
 router.post('/checkout/:id', (req, res) => {
     db.query('UPDATE attendance_logs SET check_out = CURRENT_TIMESTAMP WHERE id = ?',
         [req.params.id],
-        (err, result) => {
+        (err) => {
             if (err) {
                 res.status(500).json({ error: err.message });
                 return;
             }
-
-            if (result.affectedRows === 0) {
-                res.status(404).json({ error: 'Attendance record not found' });
-                return;
-            }
-
             res.json({ message: 'Check-out successful' });
         }
     );
@@ -155,9 +124,9 @@ router.get('/export', (req, res) => {
             FROM attendance_logs
         `;
         
-        db.query(statsQuery, (statsErr, stats) => {
-            if (statsErr) {
-                res.status(500).json({ error: statsErr.message });
+        db.query(statsQuery, (err, stats) => {
+            if (err) {
+                res.status(500).json({ error: err.message });
                 return;
             }
 

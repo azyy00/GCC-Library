@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { studentApi } from '../services/api';
+import axios from 'axios';
 
 function StudentForm() {
   const [formData, setFormData] = useState({
@@ -24,11 +24,7 @@ function StudentForm() {
         formDataToSend.append(key, formData[key]);
       });
 
-      await studentApi.create(formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      await axios.post('http://localhost:3001/api/students', formDataToSend);
       alert('Student registered successfully!');
       setFormData({ student_id: '', first_name: '', last_name: '', middle_name: '', address: '', email: '', gender: '', course: '', year: '', section: '', profile_image: null });
     } catch (error) {

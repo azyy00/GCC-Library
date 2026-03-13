@@ -1,4 +1,1 @@
 node_modules
-build
-backend/uploads/profiles/*
-!backend/uploads/profiles/.gitkeep

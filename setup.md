@@ -79,40 +79,6 @@ npm run dev
 
 This will start both servers using concurrently.
 
-## Frontend Deployment On Vercel
-
-Use this option when the frontend should be hosted on Vercel while the backend stays on a separate Node host.
-
-### Requirements
-- A public backend URL, for example `https://your-backend-domain.example`
-- The backend must expose the API under `/api`
-- The backend must allow requests from your Vercel frontend domain
-
-### Vercel Settings
-
-1. Import this project into Vercel
-2. Set the project root to the repository root:
-   ```text
-   library-app-main
-   ```
-3. Confirm these build settings:
-   ```text
-   Framework Preset: Create React App
-   Build Command: npm run build
-   Output Directory: build
-   Node.js Version: 20.x
-   ```
-4. Add this environment variable in Vercel:
-   ```text
-   REACT_APP_API_URL=https://your-backend-domain.example/api
-   ```
-5. Deploy the project
-
-### Notes
-- `vercel.json` includes a rewrite so React Router routes like `/attendance` and `/active` work on refresh
-- Uploaded student profile images are still served from the backend host, not Vercel
-- The sample value is also available in `.env.example`
-
 ## Features
 
 ### ✅ Completed Features

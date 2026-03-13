@@ -1,19 +1,37 @@
 const mysql = require('mysql2');
-
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'library_attendance'
+const path = require('path');
+const { attachDatabasePool } = require('@vercel/functions');
+require('dotenv').config({
+    path: path.join(__dirname, '..', '.env')
 });
 
-// Test connection immediately
-connection.connect(err => {
-    if (err) {
-        console.error('Error connecting to database:', err);
-        process.exit(1); // Exit if can't connect to database
-    }
-    console.log('Connected to database successfully');
-});
+const connectionConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    port: Number(process.env.DB_PORT || 3306),
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'library_attendance',
+    waitForConnections: true,
+    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+    queueLimit: 0
+};
 
-module.exports = connection;
+const pool = mysql.createPool(connectionConfig);
+
+if (process.env.VERCEL) {
+    attachDatabasePool(pool);
+}
+
+if (!process.env.VERCEL) {
+    pool.getConnection((err, connection) => {
+        if (err) {
+            console.error('Error connecting to database:', err.message);
+            return;
+        }
+
+        console.log('Connected to database successfully');
+        connection.release();
+    });
+}
+
+module.exports = pool;

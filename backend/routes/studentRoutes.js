@@ -2,11 +2,13 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { put } = require('@vercel/blob');
 const router = express.Router();
 const db = require('../config/db');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
+const useBlobStorage = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+const localDiskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = path.join(__dirname, '../uploads/profiles');
     if (!fs.existsSync(uploadDir)) {
@@ -21,7 +23,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ 
-  storage: storage,
+  storage: useBlobStorage ? multer.memoryStorage() : localDiskStorage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
@@ -37,6 +39,35 @@ const upload = multer({
     }
   }
 });
+
+const saveProfileImage = async (file) => {
+  if (!file) {
+    return null;
+  }
+
+  if (useBlobStorage) {
+    const extension = path.extname(file.originalname) || '.png';
+    const blob = await put(`profiles/profile-${Date.now()}${extension}`, file.buffer, {
+      access: 'public',
+      addRandomSuffix: true,
+      contentType: file.mimetype
+    });
+
+    return blob.url;
+  }
+
+  return `/uploads/profiles/${file.filename}`;
+};
+
+const removeProfileImage = async (file) => {
+  if (!file || useBlobStorage) {
+    return;
+  }
+
+  if (file.path && fs.existsSync(file.path)) {
+    fs.unlinkSync(file.path);
+  }
+};
 
 // Test route
 router.get('/test', (req, res) => {
@@ -151,38 +182,44 @@ router.post('/upload-image/:student_id', upload.single('profile_image'), (req, r
     if (!req.file) {
         return res.status(400).json({ error: 'No image file provided' });
     }
-    
-    const imagePath = `/uploads/profiles/${req.file.filename}`;
-    
-    // Update student record with image path
-    db.query(
-        'UPDATE students SET profile_image = ? WHERE student_id = ?',
-        [imagePath, studentId],
-        (err, result) => {
-            if (err) {
-                // Delete uploaded file if database update fails
-                fs.unlinkSync(req.file.path);
-                res.status(500).json({ error: err.message });
-                return;
-            }
-            
-            if (result.affectedRows === 0) {
-                // Delete uploaded file if student not found
-                fs.unlinkSync(req.file.path);
-                res.status(404).json({ error: 'Student not found' });
-                return;
-            }
-            
-            res.json({ 
-                message: 'Image uploaded successfully',
-                imagePath: imagePath
-            });
-        }
-    );
+
+    saveProfileImage(req.file)
+        .then((imagePath) => {
+            db.query(
+                'UPDATE students SET profile_image = ? WHERE student_id = ?',
+                [imagePath, studentId],
+                async (err, result) => {
+                    if (err) {
+                        await removeProfileImage(req.file);
+                        res.status(500).json({ error: err.message });
+                        return;
+                    }
+                    
+                    if (result.affectedRows === 0) {
+                        await removeProfileImage(req.file);
+                        res.status(404).json({ error: 'Student not found' });
+                        return;
+                    }
+                    
+                    res.json({ 
+                        message: 'Image uploaded successfully',
+                        imagePath: imagePath
+                    });
+                }
+            );
+        })
+        .catch((error) => {
+            console.error('Image upload error:', error);
+            res.status(500).json({ error: 'Could not upload image' });
+        });
 });
 
 // Serve uploaded images
 router.get('/image/:filename', (req, res) => {
+    if (useBlobStorage) {
+        return res.status(404).json({ error: 'Blob-hosted images are served directly from their stored URL' });
+    }
+
     const filename = req.params.filename;
     const imagePath = path.join(__dirname, '../uploads/profiles', filename);
     
@@ -194,31 +231,34 @@ router.get('/image/:filename', (req, res) => {
 });
 
 // Add new student
-router.post('/', upload.single('profile_image'), (req, res) => {
+router.post('/', upload.single('profile_image'), async (req, res) => {
     const studentData = { ...req.body };
     
-    // Handle profile image if uploaded
-    if (req.file) {
-        studentData.profile_image = `/uploads/profiles/${req.file.filename}`;
-    }
-    
-    db.query('INSERT INTO students SET ?', studentData, (err, result) => {
-        if (err) {
-            // Delete uploaded file if database insert fails
-            if (req.file) {
-                fs.unlinkSync(req.file.path);
-            }
+    try {
+        if (req.file) {
+            studentData.profile_image = await saveProfileImage(req.file);
+        }
+        
+        db.query('INSERT INTO students SET ?', studentData, async (err, result) => {
+            if (err) {
+                if (req.file) {
+                    await removeProfileImage(req.file);
+                }
 
-            if (err.code === 'ER_DUP_ENTRY') {
-                res.status(409).json({ error: 'Student ID already exists' });
+                if (err.code === 'ER_DUP_ENTRY') {
+                    res.status(409).json({ error: 'Student ID already exists' });
+                    return;
+                }
+
+                res.status(500).json({ error: err.message });
                 return;
             }
-
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.status(201).json({ id: result.insertId, ...studentData });
-    });
+            res.status(201).json({ id: result.insertId, ...studentData });
+        });
+    } catch (error) {
+        console.error('Student creation error:', error);
+        res.status(500).json({ error: 'Could not save student record' });
+    }
 });
 
 module.exports = router;

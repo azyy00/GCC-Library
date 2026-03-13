@@ -113,6 +113,60 @@ Use this option when the frontend should be hosted on Vercel while the backend s
 - Uploaded student profile images are still served from the backend host, not Vercel
 - The sample value is also available in `.env.example`
 
+## Backend Deployment On Vercel
+
+Use a separate Vercel project for the backend and set the root directory to:
+
+```text
+backend
+```
+
+### Backend Vercel Settings
+
+1. Import the same GitHub repository into Vercel again
+2. Set the project root directory to:
+   ```text
+   backend
+   ```
+3. Confirm these settings:
+   ```text
+   Framework Preset: Other
+   Build Command: npm install
+   Output Directory: leave empty
+   Node.js Version: 20.x
+   ```
+
+### Required Backend Environment Variables
+
+Add these in the backend Vercel project:
+
+```text
+DB_HOST=your-mysql-host
+DB_PORT=3306
+DB_USER=your-mysql-user
+DB_PASSWORD=your-mysql-password
+DB_NAME=library_attendance
+DB_CONNECTION_LIMIT=10
+```
+
+### Profile Image Uploads On Vercel
+
+This backend now supports Vercel Blob for profile images. Add this environment variable if you want uploads to persist:
+
+```text
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
+```
+
+Without a Blob token, profile uploads still work locally, but a Vercel deployment should not rely on local disk storage.
+
+### Frontend Connection
+
+After the backend is deployed, take the backend domain and set the frontend Vercel environment variable to:
+
+```text
+REACT_APP_API_URL=https://your-backend-vercel-domain/api
+```
+
 ## Features
 
 ### ✅ Completed Features

@@ -113,6 +113,73 @@ Use this option when the frontend should be hosted on Vercel while the backend s
 - Uploaded student profile images are still served from the backend host, not Vercel
 - The sample value is also available in `.env.example`
 
+## Backend Deployment On Railway
+
+Use Railway when you want the backend and MySQL database on the same host platform while keeping the frontend on Vercel.
+
+### Railway Project Layout
+
+1. Create a new Railway project
+2. Add a service from your GitHub repository
+3. Select this repository and set the service root directory to:
+   ```text
+   backend
+   ```
+4. Railway should auto-detect this as a Node.js app
+5. Confirm the backend start command is:
+   ```text
+   npm start
+   ```
+
+### Add A Railway MySQL Service
+
+1. In the same Railway project, add a MySQL database service
+2. Wait for Railway to finish provisioning it
+3. In the backend service variables, create these reference variables:
+   ```text
+   DB_HOST=${{MySQL.MYSQLHOST}}
+   DB_PORT=${{MySQL.MYSQLPORT}}
+   DB_USER=${{MySQL.MYSQLUSER}}
+   DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+   DB_NAME=${{MySQL.MYSQLDATABASE}}
+   DB_CONNECTION_LIMIT=10
+   ```
+
+If your Railway MySQL service has a different name, replace `MySQL` with that service name.
+
+### Profile Images On Railway
+
+Railway does not provide durable local disk storage for uploaded files. Keep using your existing Vercel Blob store for profile images by setting:
+
+```text
+BLOB_READ_WRITE_TOKEN=your-vercel-blob-token
+```
+
+The backend now passes that token explicitly, so Vercel Blob uploads work even when the backend is deployed outside Vercel.
+
+### Import Existing Local Data
+
+If your `library_attendance` database currently lives in XAMPP or another local MySQL instance, export it locally and import it into Railway MySQL before testing the deployed backend.
+
+### Verify The Railway Backend
+
+After deployment, test:
+
+```text
+https://your-railway-backend-domain/api/health
+https://your-railway-backend-domain/api/health/db
+```
+
+The `/api/health/db` endpoint should report `database: "reachable"` when the Railway database is connected correctly.
+
+### Connect The Frontend
+
+Once the Railway backend is live, set this in the frontend Vercel project:
+
+```text
+REACT_APP_API_URL=https://your-railway-backend-domain/api
+```
+
 ## Backend Deployment On Vercel
 
 Use a separate Vercel project for the backend and set the root directory to:

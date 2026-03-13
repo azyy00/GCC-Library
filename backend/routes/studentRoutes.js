@@ -50,7 +50,8 @@ const saveProfileImage = async (file) => {
     const blob = await put(`profiles/profile-${Date.now()}${extension}`, file.buffer, {
       access: 'public',
       addRandomSuffix: true,
-      contentType: file.mimetype
+      contentType: file.mimetype,
+      token: process.env.BLOB_READ_WRITE_TOKEN
     });
 
     return blob.url;

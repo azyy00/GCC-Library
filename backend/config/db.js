@@ -16,6 +16,18 @@ const connectionConfig = {
     queueLimit: 0
 };
 
+const shouldUseSsl = ['1', 'true', 'yes'].includes(
+    `${process.env.DB_SSL || ''}`.trim().toLowerCase()
+);
+
+if (shouldUseSsl) {
+    connectionConfig.ssl = {
+        rejectUnauthorized: `${process.env.DB_SSL_REJECT_UNAUTHORIZED || 'true'}`
+            .trim()
+            .toLowerCase() !== 'false'
+    };
+}
+
 const pool = mysql.createPool(connectionConfig);
 
 if (!process.env.VERCEL) {

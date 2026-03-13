@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const db = require('./config/db');
 const studentRoutes = require('./routes/studentRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
 const statsRoutes = require('./routes/statsRoutes');
@@ -19,6 +20,41 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         platform: process.env.VERCEL ? 'vercel' : 'local'
+    });
+});
+
+app.get('/api/health/db', (req, res) => {
+    db.query('SELECT 1 AS connected', (err, results) => {
+        if (err) {
+            res.status(500).json({
+                status: 'error',
+                database: 'unreachable',
+                error: err.message,
+                config: {
+                    host: process.env.DB_HOST || null,
+                    port: Number(process.env.DB_PORT || 3306),
+                    database: process.env.DB_NAME || null,
+                    ssl: ['1', 'true', 'yes'].includes(
+                        `${process.env.DB_SSL || ''}`.trim().toLowerCase()
+                    )
+                }
+            });
+            return;
+        }
+
+        res.json({
+            status: 'ok',
+            database: 'reachable',
+            result: results[0],
+            config: {
+                host: process.env.DB_HOST || null,
+                port: Number(process.env.DB_PORT || 3306),
+                database: process.env.DB_NAME || null,
+                ssl: ['1', 'true', 'yes'].includes(
+                    `${process.env.DB_SSL || ''}`.trim().toLowerCase()
+                )
+            }
+        });
     });
 });
 

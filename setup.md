@@ -131,7 +131,8 @@ backend
 3. Confirm these settings:
    ```text
    Framework Preset: Other
-   Build Command: npm install
+   Install Command: npm install
+   Build Command: leave empty
    Output Directory: leave empty
    Node.js Version: 20.x
    ```
